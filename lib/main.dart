@@ -8,8 +8,9 @@ class MyApp extends StatefulWidget {
 }
 
 class _MyAppState extends State<MyApp> {
-  GoogleSignIn _googleSignIn = GoogleSignIn(
+  final GoogleSignIn _googleSignIn = GoogleSignIn(
   scopes: ['email'],
+  serverClientId: '771472830027-ls01kb7d3c8alfump1ppfi4so723cvun.apps.googleusercontent.com',
 );
   GoogleSignInAccount? _currentUser;
 
@@ -24,16 +25,33 @@ class _MyAppState extends State<MyApp> {
     _googleSignIn.signInSilently();
   }
 
-  Future<void> _handleSignIn() async {
+ Future<void> _handleSignIn() async {
   try {
-    GoogleSignInAccount? account = await _googleSignIn.signIn();
-    GoogleSignInAuthentication authentication = await account!.authentication;
-    String idToken = authentication.idToken!;
-    
-    // Now send this token to the Node.js server
-    await _sendTokenToPocketbase(idToken);
+    final GoogleSignInAccount? googleUser = await _googleSignIn.signIn();
+
+    if (googleUser == null) {
+      print("Sign-in canceled by user.");
+      return; // User canceled the sign-in
+    }
+
+    if (googleUser != null) {
+      final GoogleSignInAuthentication googleAuth = await googleUser.authentication;
+      if (googleAuth == null || googleAuth.idToken == null) {
+        print("Error: googleAuth or idToken is null");
+        return;
+      }
+
+      print("Google User: ${googleUser.email}");
+      
+      // Call the _sendTokenToPocketbase method to send the token to your Pocketbase API
+      await _sendTokenToPocketbase(googleAuth.idToken);
+
+    } else {
+      print("Error: googleUser is null");
+    }
+
   } catch (error) {
-    print('Error signing in: $error');
+    print("Error signing in: $error");
   }
 }
 
@@ -43,13 +61,13 @@ class _MyAppState extends State<MyApp> {
   Future<void> _sendTokenToPocketbase(String? idToken) async {
   if (idToken != null) {
     var response = await http.post(
-      Uri.parse('https://3jx8jtwq-8090.uks1.devtunnels.ms/api/auth/google'),  // Replace with your actual server URL
+      Uri.parse('https://19s674wc.uks1.devtunnels.ms:3000/api/auth/google'),  // Replace with your actual server URL
       headers: {'Authorization': 'Bearer $idToken'},
     );
     if (response.statusCode == 200) {
       print('Successfully authenticated with Pocketbase');
     } else {
-      print('Failed to authenticate: ${response.body}');
+      print('Failed to authenticate: ${response.statusCode} - ${response.body}');
     }
   }
 }
